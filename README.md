@@ -5,19 +5,17 @@ Bu proje, endüstriyel sahadaki verilerin (Modbus RTU/TCP) toplanması, işlenme
 Bu çalışma, klasik PLC ve HMI sistemlerinin yeteneklerini IoT dünyasıyla birleştirmek amacıyla geliştirilmiştir. ESP32'nin işlem gücü, W5500'ün stabil kablolu bağlantı yeteneği ve Raspberry Pi 5'in sunucu kapasitesi kullanılarak uçtan uca bir veri hattı oluşturulmuştur.
 
 Öne Çıkan Özellikler
-Çoklu Protokol Desteği: Modbus RTU üzerinden sensör ve PLC verilerinin okunması, Modbus TCP üzerinden ağ aktarımı.
-
-Kablolu Bağlantı Stabilitesi: Wi-Fi yerine endüstriyel ortamlarda daha güvenilir olan W5500 Ethernet modülü entegrasyonu.
+Çoklu Protokol Desteği: Modbus TCP üzerinden sensör ve PLC verilerinin okunması, 
 
 Modern Web SCADA: Flask tabanlı bir web sunucusu üzerinden gerçek zamanlı veri görselleştirme ve kontrol.
 
-Endüstriyel Donanım Uyumu: RS485 haberleşme altyapısı ve endüstriyel klemens/ray tipi montaja uygun tasarım vizyonu.
+w5500 lite plc ile modbuss tcp üzerinden veri çeker
 
 🛠 Teknik Mimari ve Donanım
 Donanım Bileşenleri
 Kontrolcü: ESP32 (Dual Core, 240MHz)
 
-Haberleşme: * W5500 Ethernet Modülü (Kablolu ağ bağlantısı için)
+Haberleşme: * W5500 Ethernet Modülü (plc için)
 
 MAX485 / RS485 Dönüştürücü (Endüstriyel cihazlarla haberleşme için)
 
