@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+
+<style>
+    .dashboard-scroll {
+        height: calc(100vh - 160px); 
+        overflow-y: auto;           
+        overflow-x: hidden;         
+        padding-right: 10px;
+    }
+    .dashboard-scroll::-webkit-scrollbar { width: 6px; }
+    .dashboard-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
+    .dashboard-scroll::-webkit-scrollbar-track { background: #F0F0F0; }
+
+    .sensor-card {
+        min-height: 420px; 
+        max-height: 420px;
+        background-color: white;
+        border: 1px solid #ddd;
+    }
+
+    .custom-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.85);
+        z-index: 1050;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(3px);
+    }
+    .custom-modal-content {
+        background-color: #1E1E1E;
+        width: 85%;
+        max-width: 1000px;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        color: white;
+    }
+</style>
+
+<div id="cihaz-verisi" 
+     data-ip="{{ cihaz.ip }}" 
+     data-port="{{ cihaz.port }}" 
+     data-sensorler='{{ cihaz.sensorler | tojson | safe }}' 
+     style="display: none;">
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="m-0 fw-bold" style="color: #2C3E50;">{{ cihaz.isim }} - İzleme Paneli</h2>
+        <span class="badge bg-info text-dark shadow-sm">Bağlantı: {{ cihaz.ip }}:{{ cihaz.port }}</span>
+    </div>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm fw-bold">← Geri Dön</a>
+</div>
+<hr class="border-secondary">
+
+<div class="row">
+    {% if session.get('rol') == 'admin' %}
+    <div class="col-md-4 mb-4">
+        <div class="card p-3 shadow-sm" style="background-color: white; border: 1px solid #ddd;">
+            <h5 class="mb-3 fw-bold" style="color: #007ACC;">Yeni Adres Ekle</h5>
+            <form action="{{ url_for('sensor_ekle', ip=cihaz.ip, port=cihaz.port) }}" method="POST">
+                <div class="mb-2">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Tag (Etiket)</label>
+                    <input type="text" name="isim" class="form-control form-control-sm border-secondary" placeholder="Örn: Sıcaklık, Motor 1 vs." required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Adres Tipi</label>
+                    <select name="adres_tipi" id="adres_tipi" class="form-select form-select-sm border-secondary" onchange="tipDegisti()">
+                        <option value="REGISTER">REGISTER (D)</option>
+                        <option value="TIMER">TIMER (T)</option>
+                        <option value="COIL">COIL (M)</option>
+                        <option value="GIRIS">GİRİŞ (X)</option>
+                        <option value="CIKIS">ÇIKIŞ (Y)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Register Adresi</label>
+                    <input type="number" name="adres_no" class="form-control form-control-sm border-secondary" placeholder="Adres No (Örn: 100)" required>
+                </div>
+                <div class="mb-3" id="veri_boyutu_alani">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Veri Formatı</label>
+                    <select name="veri_formati" class="form-select form-select-sm border-secondary">
+                        <option value="16BIT">16-Bit (Tam Sayı)</option>
+                        <option value="32BIT">32-Bit (Tam Sayı)</option>
+                        <option value="FLOAT">32-Bit (Ondalıklı)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold" style="background-color: #007ACC; border: none;">Cihaza Ekle</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="{% if session.get('rol') == 'admin' %}col-md-8{% else %}col-md-12{% endif %}">
+        <div class="dashboard-scroll">
+            <div class="row" id="grafik-alani">
+                {% if not cihaz.sensorler %}
+                    <div class="col-12 text-center text-muted mt-5">
+                        <h5 class="fw-bold">Henüz takip edilen bir veri yok.</h5>
+                        {% if session.get('rol') == 'admin' %}<p>Sol taraftaki menüden adres ekleyebilirsiniz.</p>{% endif %}
+                    </div>
+                {% else %}
+                    {% for sensor in cihaz.sensorler %}
+                    <div class="{% if session.get('rol') == 'admin' %}col-md-6{% else %}col-md-4{% endif %} mb-4">
+                        <div class="card p-3 text-center position-relative sensor-card shadow-sm">
+                            {% if session.get('rol') == 'admin' %}
+                            <a href="{{ url_for('sensor_sil', ip=cihaz.ip, port=cihaz.port, index=loop.index0) }}" 
+                               class="btn btn-sm btn-danger position-absolute fw-bold" 
+                               style="top: 10px; right: 10px; z-index: 10;" 
+                               onclick="return confirm('Silmek istediğinize emin misiniz?');">X</a>
+                            {% endif %}
+                            
+                            <h6 class="mt-1 fw-bold" style="color: #2C3E50;">{{ sensor.isim }} <small class="text-muted">[{{ sensor.komut }}]</small></h6>
+                            
+                            {% if sensor.tip == 'Analog' %}
+                                <h2 id="deger-{{ loop.index }}" class="my-2" style="color: #007ACC; font-weight: bold;">0</h2>
+                                <div style="height: 120px;">
+                                    <canvas id="chart-{{ loop.index }}"></canvas>
+                                </div>
+                                <span class="badge bg-secondary mt-1 mb-2" style="font-size: 0.7rem;">{{ sensor.veri_formati }}</span>
+                                
+                                {% if session.get('rol') == 'admin' %}
+                                <div class="input-group input-group-sm">
+                                    <input type="number" id="input-{{ loop.index }}" class="form-control border-secondary" placeholder="Değer gir..." step="any">
+                                    <button class="btn btn-outline-primary fw-bold" onclick="veriYaz('{{ cihaz.ip }}', '{{ cihaz.port }}', '{{ sensor.komut }}', '{{ sensor.veri_formati }}', 'input-{{ loop.index }}')">YAZ</button>
+                                </div>
+                                {% else %}
+                                <div class="badge bg-light text-secondary border p-2 w-100 mt-1">Sadece İzleme Modu</div>
+                                {% endif %}
+                                <button class="btn btn-sm w-100 fw-bold text-white mt-2" style="background-color: #34495E;" onclick="detayliGrafikAc('{{ sensor.isim }}', '{{ sensor.komut }}', false)">📊 Detaylı Analiz Grafiği</button>
+                            {% else %}
+                                <div class="d-flex flex-column justify-content-center align-items-center h-100">
+                                    <div id="led-{{ loop.index }}" style="width: 50px; height: 50px; border-radius: 50%; background-color: #ccc; margin-bottom: 15px;"></div>
+                                    <h3 id="deger-{{ loop.index }}" class="mb-3 fw-bold" style="color: #555;">KAPALI</h3>
+                                    
+                                    {% if session.get('rol') == 'admin' %}
+                                    <div class="d-flex w-100 justify-content-center gap-2">
+                                        <button class="btn btn-success btn-sm fw-bold w-50" onclick="veriYaz('{{ cihaz.ip }}', '{{ cihaz.port }}', '{{ sensor.komut }}', 'BOOL', null, 1)">AÇ</button>
+                                        <button class="btn btn-danger btn-sm fw-bold w-50" onclick="veriYaz('{{ cihaz.ip }}', '{{ cihaz.port }}', '{{ sensor.komut }}', 'BOOL', null, 0)">KAPAT</button>
+                                    </div>
+                                    {% else %}
+                                    <div class="badge bg-light text-secondary border p-2 w-100 mt-2">Sadece İzleme Modu</div>
+                                    {% endif %}
+                                    <button class="btn btn-sm w-100 fw-bold text-white mt-3" style="background-color: #34495E;" onclick="detayliGrafikAc('{{ sensor.isim }}', '{{ sensor.komut }}', true)">📊 Durum Geçmişi Grafiği</button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="detayliGrafikModal" class="custom-modal-overlay">
+    <div class="custom-modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary pb-2">
+            <h4 id="detayliGrafikBaslik" class="m-0 fw-bold" style="color: #3498DB;">Detaylı Analiz</h4>
+            <button class="btn btn-danger btn-sm fw-bold" onclick="detayliGrafikKapat()">X KAPAT</button>
+        </div>
+        <div style="height: 450px; width: 100%;">
+            <canvas id="detayliChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    const veriDeposu = document.getElementById('cihaz-verisi');
+    const ip = veriDeposu.getAttribute('data-ip');
+    const port = veriDeposu.getAttribute('data-port');
+    const sensorListesi = JSON.parse(veriDeposu.getAttribute('data-sensorler'));
+    const chartObjects = {};
+    let detayliChartInstance = null;
+    let aktifDetayKomut = null;
+
+    function tipDegisti() {
+        const tip = document.getElementById("adres_tipi")?.value;
+        const boyutAlani = document.getElementById("veri_boyutu_alani");
+        if(boyutAlani) boyutAlani.style.display = (tip === "REGISTER") ? "block" : "none";
+    }
+
+    function veriYaz(ip, port, komut_adi, format_tipi, input_id, dogrudan_deger) {
+        let yazilacak_deger = dogrudan_deger;
+        if (input_id) {
+            const inputEl = document.getElementById(input_id);
+            if (inputEl.value === "") { alert("Lütfen cihaza yazmak için bir değer girin!"); return; }
+            yazilacak_deger = parseFloat(inputEl.value);
+            inputEl.value = "";
+        }
+        const tam_komut = `${komut_adi}|${format_tipi}`;
+        fetch(`/api/veri_yaz/${ip}/${port}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ komut: tam_komut, deger: yazilacak_deger })
+        })
+        .then(res => res.json())
+        .then(data => { if(!data.basari) alert("Yazma hatası: " + data.hata); })
+        .catch(err => alert("Bağlantı hatası oluştu! Cihaz çevrimdışı olabilir."));
+    }
+
+    function detayliGrafikAc(isim, komut, isDijital=false) {
+        aktifDetayKomut = komut;
+        document.getElementById('detayliGrafikBaslik').innerText = isim + " - Canlı Analiz Grafiği [" + komut + "]";
+        document.getElementById('detayliGrafikModal').style.display = 'flex';
+        const ctx = document.getElementById('detayliChart').getContext('2d');
+        if(detayliChartInstance) detayliChartInstance.destroy();
+        
+        let baslangicData = [];
+        let baslangicLabels = [];
+        if(!isDijital && chartObjects[komut]) {
+            baslangicData = [...chartObjects[komut].data.datasets[0].data];
+            baslangicLabels = [...chartObjects[komut].data.labels];
+        }
+
+        detayliChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: baslangicLabels,
+                datasets: [{
+                    label: isim,
+                    data: baslangicData,
+                    borderColor: isDijital ? '#E74C3C' : '#3498DB',
+                    backgroundColor: isDijital ? 'rgba(231, 76, 60, 0.1)' : 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 2, fill: true,
+                    tension: isDijital ? 0 : 0.3,
+                    stepped: isDijital ? true : false,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                scales: {
+                    x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                    y: { 
+                        ticks: { color: '#aaa', stepSize: isDijital ? 1 : undefined }, 
+                        grid: { color: '#333' },
+                        suggestedMin: isDijital ? -0.5 : null,
+                        suggestedMax: isDijital ? 1.5 : null
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function detayliGrafikKapat() {
+        aktifDetayKomut = null;
+        document.getElementById('detayliGrafikModal').style.display = 'none';
+        if(detayliChartInstance) { detayliChartInstance.destroy(); detayliChartInstance = null; }
+    }
+
+    window.onload = function() {
+        if(document.getElementById("adres_tipi")) tipDegisti();
+        sensorListesi.forEach((sensor, index) => {
+            if (sensor.tip === 'Analog') {
+                const ctx = document.getElementById(`chart-${index + 1}`).getContext('2d');
+                chartObjects[sensor.komut] = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ data: [], borderColor: '#007ACC', backgroundColor: 'rgba(0, 122, 204, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0 }] },
+                    options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { display: false }, y: { grid: { color: '#eee' }, ticks: { color: '#555', font: { size: 10 } } } }, plugins: { legend: { display: false } } }
+                });
+            }
+        });
+        if (sensorListesi.length > 0) setInterval(veriCekVeGuncelle, 1000);
+    };
+
+    function veriCekVeGuncelle() {
+        fetch(`/api/veri/${ip}/${port}`).then(res => res.json()).then(data => {
+            if(data.veriler) {
+                const simdi = new Date().toLocaleTimeString();
+                sensorListesi.forEach((sensor, index) => {
+                    const gelenDeger = data.veriler[sensor.komut] || 0;
+                    const textElement = document.getElementById(`deger-${index + 1}`);
+                    if (sensor.tip === 'Analog') {
+                        if (textElement) textElement.innerText = gelenDeger;
+                        const chart = chartObjects[sensor.komut];
+                        if (chart) {
+                            if (chart.data.labels.length > 20) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+                            chart.data.labels.push(simdi); chart.data.datasets[0].data.push(gelenDeger); chart.update();
+                        }
+                    } else {
+                        const led = document.getElementById(`led-${index + 1}`);
+                        const aktif = gelenDeger >= 1;
+                        if (led) { led.style.backgroundColor = aktif ? "#2ECC71" : "#ccc"; led.style.boxShadow = aktif ? "0 0 15px rgba(46, 204, 113, 0.6)" : "none"; }
+                        if (textElement) { textElement.innerText = aktif ? "AÇIK" : "KAPALI"; textElement.style.color = aktif ? "#2ECC71" : "#555"; }
+                    }
+                    if (aktifDetayKomut === sensor.komut && detayliChartInstance) {
+                        if (detayliChartInstance.data.labels.length > 60) { detayliChartInstance.data.labels.shift(); detayliChartInstance.data.datasets[0].data.shift(); }
+                        detayliChartInstance.data.labels.push(simdi); detayliChartInstance.data.datasets[0].data.push(gelenDeger); detayliChartInstance.update();
+                    }
+                });
+            }
+        });
+    }
+</script>
+{% endblock %}

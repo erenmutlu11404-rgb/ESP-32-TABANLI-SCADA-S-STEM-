@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="m-0 fw-bold" style="color: #9b59b6;">Kullanıcı Yönetim Paneli</h2>
+</div>
+<hr class="border-secondary">
+
+<div class="row">
+    <div class="col-md-5 mb-4">
+        <div class="card p-4 shadow-sm" style="background-color: #2D2D30; border: none; color: white;">
+            <h5 class="mb-4 fw-bold text-center" style="color: #3498DB;">Yeni Kullanıcı Ekle</h5>
+            <form method="POST">
+                <input type="hidden" name="yeni_kullanici" value="1">
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">Kullanıcı Adı</label>
+                    <input type="text" name="kullanici_adi" class="form-control bg-dark text-white border-secondary" placeholder="Örn: operator1" required autocomplete="off">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">Şifre</label>
+                    <input type="text" name="sifre" class="form-control bg-dark text-white border-secondary" placeholder="Şifre belirleyin" required autocomplete="off">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-secondary">Yetki Rolü</label>
+                    <select name="rol" class="form-select bg-dark text-white border-secondary" required>
+                        <option value="misafir">Misafir (Sadece İzleme)</option>
+                        <option value="admin">Admin (Tam Yetki)</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 fw-bold" style="background-color: #007ACC; border: none; padding: 10px;">SİSTEME KAYDET</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <h5 class="fw-bold mb-3" style="color: #2C3E50;">Sisteme Kayıtlı Kullanıcılar</h5>
+        <div class="table-responsive bg-white rounded shadow-sm border">
+            <table class="table table-hover align-middle m-0">
+                <thead style="background-color: #f8f9fa;">
+                    <tr>
+                        <th>Kullanıcı Adı</th>
+                        <th>Rol (Yetki)</th>
+                        <th>Şifre</th>
+                        <th class="text-center">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k_adi, detay in kullanicilar.items() %}
+                    <tr>
+                        <td class="fw-bold">{{ k_adi }}</td>
+                        <td>
+                            {% if detay.rol == 'admin' %}
+                                <span class="badge bg-primary">ADMİN</span>
+                            {% else %}
+                                <span class="badge bg-secondary">MİSAFİR</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="text-muted" style="font-family: monospace;">{{ detay.sifre }}</span></td>
+                        <td class="text-center">
+                            {% if k_adi != session.get('kullanici') %}
+                                <form method="POST" style="display:inline;">
+                                    <input type="hidden" name="silinecek_kullanici" value="{{ k_adi }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger fw-bold" onclick="return confirm('{{ k_adi }} kullanıcısını silmek istediğinize emin misiniz?');">SİL</button>
+                                </form>
+                            {% else %}
+                                <span class="badge bg-success">AKTİF (Sen)</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

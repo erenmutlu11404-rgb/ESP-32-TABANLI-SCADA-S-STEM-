@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm p-4" style="background-color: #2D2D30; color: white; border:none;">
+            <h4 class="text-center mb-4 text-white fw-bold">CİHAZ VE PLC YAPILANDIRMA</h4>
+            
+            <form method="POST">
+                <h6 style="color: #3498DB; font-weight: bold;">1. USB BAĞLANTISI (Yükleme İçin)</h6>
+                <div class="p-3 mb-3 rounded" style="background-color: #3E3E42;">
+                    <select name="com_port" class="form-select bg-dark text-white border-secondary">
+                        {% for port in portlar %}
+                            <option value="{{ port }}">{{ port }}</option>
+                        {% else %}
+                            <option value="">Cihaz bulunamadı (Sunucuya USB takılı mı?)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <h6 style="color: #3498DB; font-weight: bold;">2. KABLOSUZ AĞ & CİHAZ AYARLARI</h6>
+                <div class="p-3 mb-3 rounded" style="background-color: #3E3E42;">
+                    <label class="form-label small">WiFi Adı (SSID):</label>
+                    <input type="text" name="wifi_ssid" class="form-control form-control-sm bg-dark text-white border-secondary mb-2" required>
+                    
+                    <label class="form-label small">WiFi Şifresi:</label>
+                    <input type="password" name="wifi_sifre" class="form-control form-control-sm bg-dark text-white border-secondary mb-3" required>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label small">Cihazın Statik IP'si:</label>
+                            <input type="text" name="cihaz_ip" class="form-control form-control-sm bg-dark text-white border-secondary">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Cihaz Portu:</label>
+                            <input type="number" name="cihaz_port" class="form-control form-control-sm bg-dark text-white border-secondary" value="502">
+                        </div>
+                    </div>
+                </div>
+
+                <h6 style="color: #3498DB; font-weight: bold;">3. PLC HABERLEŞME AYARLARI (MODBUS TCP)</h6>
+                <div class="p-3 mb-4 rounded" style="background-color: #3E3E42;">
+                    <label class="form-label small text-warning fw-bold">PLC IP Adresi:</label>
+                    <input type="text" name="plc_ip" class="form-control form-control-sm bg-dark text-white border-secondary mb-2" required>
+                    
+                    <label class="form-label small text-warning fw-bold">PLC Port:</label>
+                    <input type="number" name="plc_port" class="form-control form-control-sm bg-dark text-white border-secondary" value="502" required>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('index') }}" class="btn btn-danger px-4 fw-bold">İPTAL</a>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold" style="background-color: #007ACC; border:none;">AYARLARI YÜKLE</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

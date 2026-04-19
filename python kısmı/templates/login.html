@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>SCADA - Giriş Yap</title>
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <style>
+        body { background-color: #2D2D30; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Arial', sans-serif; }
+        .login-card { background-color: #1E1E1E; padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 400px; border: 1px solid #444; }
+        
+        /* Araya koyduğumuz VEYA çizgisi için CSS */
+        .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #7f8c8d; }
+        .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #444; }
+        .divider:not(:empty)::before { margin-right: .5em; }
+        .divider:not(:empty)::after { margin-left: .5em; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h3 class="text-center mb-4" style="color: #3498DB; font-weight: bold;">SCADA KONTROL MERKEZİ</h3>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} text-center p-2 small fw-bold">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label text-secondary fw-bold small">Kullanıcı Adı</label>
+                <input type="text" name="kullanici_adi" class="form-control bg-dark text-white border-secondary" required autocomplete="off">
+            </div>
+            <div class="mb-4">
+                <label class="form-label text-secondary fw-bold small">Şifre</label>
+                <input type="password" name="sifre" class="form-control bg-dark text-white border-secondary" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100 fw-bold" style="background-color: #007ACC; border:none; padding: 12px;">GİRİŞ YAP</button>
+            
+            <div class="divider text-muted small fw-bold">VEYA</div>
+            
+            <button type="submit" name="misafir_giris" value="1" class="btn w-100 fw-bold text-white" style="background-color: #34495E; border:none; padding: 12px;" formnovalidate>
+                MİSAFİR GİRİŞİ 
+            </button>
+        </form>
+    </div>
+</body>
+</html>

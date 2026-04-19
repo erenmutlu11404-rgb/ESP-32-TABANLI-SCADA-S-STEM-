@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    @keyframes alert-flash {
+        0% { background-color: #E74C3C; border-color: #C0392B; }
+        50% { background-color: #ff6b6b; border-color: #ff4757; transform: scale(1.01); }
+        100% { background-color: #E74C3C; border-color: #C0392B; }
+    }
+    .aktif-alarm-kutu { animation: alert-flash 1s infinite; color: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 4px 8px rgba(231, 76, 60, 0.5); }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="m-0 fw-bold" style="color: #8E44AD;">Alarm Yönetim Merkezi</h2>
+</div>
+<hr class="border-secondary">
+
+<div class="row">
+    {% if session.get('rol') == 'admin' %}
+    <div class="col-md-4 mb-4">
+        <div class="card p-3 shadow-sm" style="background-color: white; border: 1px solid #ddd;">
+            <h5 class="mb-3 fw-bold" style="color: #8E44AD;">Yeni Alarm Ekle</h5>
+            <form action="{{ url_for('alarm_ekle') }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Cihaz Seçin</label>
+                    <select name="cihaz_secimi" id="cihaz_secimi" class="form-select form-select-sm border-secondary" onchange="cihazDegisti()" required>
+                        <option value="">-- Cihaz Seç --</option>
+                        {% for cihaz in cihazlar %}
+                            <option value="{{ cihaz.ip }}:{{ cihaz.port }}">{{ cihaz.isim }} ({{ cihaz.ip }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Takip Edilecek Adres</label>
+                    <select name="sensor_secimi" id="sensor_secimi" class="form-select form-select-sm border-secondary" onchange="sensorDegisti()" required>
+                        <option value="">Önce Cihaz Seçin</option>
+                    </select>
+                </div>
+                <input type="hidden" name="sart" id="gizli_sart" value="==" disabled>
+                <div class="row mb-3" id="analog-ayar-alani">
+                    <div class="col-5">
+                        <label class="form-label small mb-1 fw-bold text-secondary">Koşul</label>
+                        <select name="sart" id="analog_sart" class="form-select form-select-sm border-secondary" required>
+                            <option value=">">Büyükse (>)</option>
+                            <option value="<">Küçükse (<)</option>
+                            <option value="==">Eşitse (==)</option>
+                        </select>
+                    </div>
+                    <div class="col-7">
+                        <label class="form-label small mb-1 fw-bold text-secondary">Limit Değer</label>
+                        <input type="number" step="any" name="deger" id="analog_deger" class="form-control form-control-sm border-secondary" placeholder="Örn: 50.5" required>
+                    </div>
+                </div>
+                <div class="row mb-3" id="dijital-ayar-alani" style="display: none;">
+                    <div class="col-12">
+                        <label class="form-label small mb-1 fw-bold text-secondary">Hangi Durumda Alarm Çalsın?</label>
+                        <select name="deger" id="dijital_durum" class="form-select form-select-sm border-secondary" disabled required>
+                            <option value="1">Cihaz AÇIK (ON) İse</option>
+                            <option value="0">Cihaz KAPALI (OFF) İse</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Alarm Mesajı</label>
+                    <input type="text" name="mesaj" class="form-control form-control-sm border-secondary" placeholder="Örn: Kritik Sıcaklık Limiti!" required>
+                </div>
+                <button type="submit" class="btn btn-sm w-100 fw-bold text-white" style="background-color: #8E44AD; border: none;">Alarm Ekle</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="{% if session.get('rol') == 'admin' %}col-md-8{% else %}col-md-12{% endif %}">
+        
+        <div class="card shadow-sm mb-4" style="border: 2px solid #E74C3C;">
+            <div class="card-header fw-bold text-white text-center" style="background-color: #E74C3C; font-size: 1.1rem;">
+                AKTİF ALARMLAR (CANLI)
+            </div>
+            <div class="card-body" id="aktif-alarmlar-kapsayici" style="background-color: #fdf2f2; min-height: 120px;">
+                <div class="text-center text-muted mt-3">Veriler analiz ediliyor...</div>
+            </div>
+        </div>
+
+        <h5 class="fw-bold" style="color: #2C3E50;">Alarm Koşulları</h5>
+        <div class="table-responsive bg-white rounded shadow-sm border mb-5">
+            <table class="table table-hover table-sm m-0">
+                <thead style="background-color: #f8f9fa;">
+                    <tr>
+                        <th>Cihaz(IP adresi)</th>
+                        <th>Adres</th>
+                        <th>Koşul</th>
+                        <th>Mesaj</th>
+                        {% if session.get('rol') == 'admin' %}<th class="text-center">İşlem</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alarm in alarmlar %}
+                    <tr>
+                        <td class="align-middle fw-bold">{{ alarm.cihaz_isim }} ({{ alarm.ip }})</td>
+                        <td class="align-middle text-primary">{{ alarm.komut.split('|')[0] }}</td>
+                        {% set is_dijital = 'BOOL' in alarm.komut %}
+                        <td class="align-middle fw-bold">
+                            {% if is_dijital %}
+                                <span class="badge {% if alarm.deger == 1 %}bg-success{% else %}bg-secondary{% endif %}">
+                                    Durum: {% if alarm.deger == 1 %}AÇIK Olursa{% else %}KAPALI Olursa{% endif %}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">{{ alarm.sart }} {{ alarm.deger }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="align-middle text-muted">{{ alarm.mesaj }}</td>
+                        
+                        {% if session.get('rol') == 'admin' %}
+                        <td class="text-center align-middle">
+                            <a href="{{ url_for('alarm_sil', index=loop.index0) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Bu alarmı silmek istediğinize emin misiniz?');">SİL</a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted p-3">Henüz kurulmuş bir alarm yok.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="fw-bold m-0" style="color: #2C3E50;">Geçmiş Alarm Kayıtları</h5>
+            {% if session.get('rol') == 'admin' %}
+            <a href="{{ url_for('gecmis_alarmlari_temizle') }}" class="btn btn-sm btn-outline-secondary fw-bold" onclick="return confirm('Tüm geçmiş kayıtlar kalıcı olarak silinsin mi?');">Geçmişi Temizle</a>
+            {% endif %}
+        </div>
+        <div class="table-responsive bg-white rounded shadow-sm border" style="max-height: 350px; overflow-y: auto;">
+            <table class="table table-hover table-sm m-0">
+                <thead style="background-color: #f8f9fa; position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th>Tarih / Saat</th>
+                        <th>Cihaz Bilgisi</th>
+                        <th>KOŞUL</th>
+                        <th>Sistem Mesajı</th>
+                        <th>Tetikleyen Değer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for kayit in gecmis_alarmlar %}
+                    <tr>
+                        <td class="align-middle text-muted" style="white-space: nowrap;">{{ kayit.zaman }}</td>
+                        <td class="align-middle fw-bold">{{ kayit.cihaz_isim }} ({{ kayit.ip }}) <span class="badge bg-secondary ms-1">{{ kayit.komut }}</span></td>
+                        <td class="align-middle fw-bold text-dark">{{ kayit.kural }}</td>
+                        <td class="align-middle text-danger fw-bold">{{ kayit.mesaj }}</td>
+                        <td class="align-middle fw-bold text-primary">{{ kayit.tetik_deger }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted p-4">Henüz kaydedilmiş bir geçmiş alarm bulunmuyor.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const tumCihazlar = {{ cihazlar | tojson | safe }};
+    function cihazDegisti() {
+        const secim = document.getElementById("cihaz_secimi")?.value;
+        if(!secim) return;
+        const sensorSelect = document.getElementById("sensor_secimi");
+        sensorSelect.innerHTML = "<option value=''>-- Seçin --</option>";
+        const [ip, port] = secim.split(":");
+        const cihaz = tumCihazlar.find(c => c.ip === ip && c.port == port);
+        if (cihaz && cihaz.sensorler) {
+            cihaz.sensorler.forEach(s => {
+                const formatTipi = s.tip === 'Dijital' ? 'BOOL' : (s.veri_formati || '16BIT');
+                const tamKomut = `${s.komut}|${formatTipi}`;
+                const opt = document.createElement("option");
+                opt.value = tamKomut; opt.text = `${s.isim} (${s.komut} - ${s.tip})`; opt.setAttribute('data-tip', s.tip);
+                sensorSelect.add(opt);
+            });
+        }
+        sensorDegisti();
+    }
+    function sensorDegisti() {
+        const select = document.getElementById("sensor_secimi");
+        if(!select) return;
+        const analogDiv = document.getElementById("analog-ayar-alani");
+        const dijitalDiv = document.getElementById("dijital-ayar-alani");
+        if(select.selectedIndex <= 0) { analogDiv.style.display = 'flex'; dijitalDiv.style.display = 'none'; return; }
+        const tip = select.options[select.selectedIndex].getAttribute('data-tip');
+        const analogSart = document.getElementById("analog_sart"); const analogDeger = document.getElementById("analog_deger");
+        const dijitalDurum = document.getElementById("dijital_durum"); const gizliSart = document.getElementById("gizli_sart");
+        if(tip === 'Dijital') {
+            analogDiv.style.display = 'none'; dijitalDiv.style.display = 'block';
+            analogSart.disabled = true; analogDeger.disabled = true; dijitalDurum.disabled = false; gizliSart.disabled = false; gizliSart.value = "=="; 
+        } else {
+            analogDiv.style.display = 'flex'; dijitalDiv.style.display = 'none';
+            analogSart.disabled = false; analogDeger.disabled = false; dijitalDurum.disabled = true; gizliSart.disabled = true;
+        }
+    }
+    function aktifAlarmlariGetir() {
+        fetch('/api/aktif_alarmlar').then(res => res.json()).then(data => {
+            const container = document.getElementById("aktif-alarmlar-kapsayici");
+            if (data.length === 0) {
+                container.innerHTML = `<div class="alert alert-success text-center fw-bold m-0">Sistemde tetiklenen aktif alarm yok.</div>`;
+            } else {
+                let html = "";
+                data.forEach(alarm => {
+                    const kisaKomut = alarm.komut.split('|')[0];
+                    const isDijital = alarm.komut.includes('BOOL');
+                    let kuralMetni = isDijital ? (alarm.deger == 1 ? "Durum AÇIK İse" : "Durum KAPALI İse") : `KOŞUL: ${kisaKomut} ${alarm.sart} ${alarm.deger}`;
+                    let anlikMetin = isDijital ? (alarm.anlik_deger >= 1 ? "<span style='color:#2ECC71'>AÇIK</span>" : "<span style='color:#ccc'>KAPALI</span>") : alarm.anlik_deger;
+                    html += `
+                    <div class="aktif-alarm-kutu border">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="m-0 fw-bold">${alarm.mesaj}</h5>
+                            <span class="badge bg-dark fs-6">${alarm.cihaz_isim} (${alarm.ip}) [${kisaKomut}]</span>
+                        </div>
+                        <hr class="my-2 border-light">
+                        <div class="fw-bold">${kuralMetni} &nbsp;|&nbsp; <span style="color: #fffed1; font-size:1.1rem;">Anlık Okunan: ${anlikMetin}</span></div>
+                    </div>`;
+                });
+                container.innerHTML = html;
+            }
+        });
+    }
+    window.onload = function() { aktifAlarmlariGetir(); setInterval(aktifAlarmlariGetir, 1000); }
+</script>
+{% endblock %}

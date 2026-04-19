@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7"> <div class="card shadow-sm p-4" style="background-color: #2D2D30; color: white; border:none;">
+            <h4 class="text-center mb-4 text-white fw-bold">SİSTEM AYARLARI</h4>
+            
+            <form method="POST">
+                <h6 style="color: #3498DB; font-weight: bold; border-bottom: 1px solid #444; padding-bottom: 5px;">E-POSTA BİLDİRİM AYARLARI</h6>
+                <div class="p-3 mb-4 rounded" style="background-color: #3E3E42;">
+                    
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" type="checkbox" id="mailAcik" name="mail_acik" {% if ayarlar.mail_acik %}checked{% endif %}>
+                        <label class="form-check-label fw-bold text-white" for="mailAcik">E-Posta ile Alarm Bildirimlerini Aktifleştir</label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small mb-1 text-light">Gönderici Gmail Adresi (Sistemin Maili):</label>
+                        <input type="email" name="gonderen" class="form-control bg-dark text-white border-secondary" placeholder="Örn: scada.sistemi@gmail.com" value="{{ ayarlar.gonderen }}">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label small mb-1 text-light">Gmail Uygulama Şifresi (16 Hane):</label>
+                        <input type="password" name="sifre" class="form-control bg-dark text-white border-secondary" placeholder="Örn: abcd efgh ijkl mnop" value="{{ ayarlar.sifre }}">
+                        
+                        <div class="mt-2 p-2 rounded" style="background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12;">
+                            <small class="text-warning fw-bold d-block" style="font-size: 0.85rem;">
+                                ⚠️ DİKKAT: Normal e-posta şifrenizi girmeyiniz!<br>
+                                Google Hesabınız üzerinden "Güvenlik > 2 Adımlı Doğrulama > Uygulama Şifreleri" kısmından yeni bir şifre oluşturup buraya giriniz.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="mb-2 border-top border-secondary pt-3">
+                        <label class="form-label small mb-1 text-info fw-bold">Alıcı E-Posta Adresleri (Alarmlar Kimlere Gidecek?)</label>
+                        <div class="input-group mb-2">
+                            <input type="email" id="yeni_alici_input" class="form-control bg-dark text-white border-secondary" placeholder="Örn: mudur@fabrika.com">
+                            <button type="button" class="btn btn-info fw-bold text-white" onclick="aliciEkle()">Listeye Ekle</button>
+                        </div>
+                        
+                        <div id="alici_listesi_container" class="d-flex flex-wrap gap-2 mt-2 p-2 rounded" style="background-color: #252526; min-height: 45px;">
+                            </div>
+                        
+                        <input type="hidden" name="alici_listesi_json" id="alici_listesi_json" value='{{ ayarlar.alici | tojson | safe }}'>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('index') }}" class="btn btn-danger px-4 fw-bold">İPTAL</a>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold" style="background-color: #27AE60; border:none;">AYARLARI KAYDET</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Arka plandan gelen listeyi alıyoruz, boşsa boş dizi [] oluşturuyoruz
+    let alicilar = [];
+    try {
+        let gelenVeri = document.getElementById('alici_listesi_json').value;
+        alicilar = JSON.parse(gelenVeri || "[]");
+        // Eski sürümde tek bir string kaydettiysek, onu diziye çevir
+        if (typeof alicilar === 'string') {
+            alicilar = alicilar ? [alicilar] : [];
+        }
+    } catch (e) {
+        alicilar = [];
+    }
+
+    function renderAlicilar() {
+        const container = document.getElementById('alici_listesi_container');
+        container.innerHTML = "";
+        
+        if(alicilar.length === 0) {
+            container.innerHTML = "<span class='text-muted small'>Henüz alıcı eklenmedi. (Uyarılar gönderici adrese gider)</span>";
+        } else {
+            alicilar.forEach((mail, index) => {
+                container.innerHTML += `
+                    <span class="badge d-flex align-items-center p-2" style="background-color: #34495E; font-size:0.85rem; border: 1px solid #555;">
+                        ${mail}
+                        <button type="button" class="btn-close btn-close-white ms-2" style="font-size:0.5rem;" onclick="aliciSil(${index})"></button>
+                    </span>
+                `;
+            });
+        }
+        // Gizli inputu güncelle ki Python okuyabilsin
+        document.getElementById('alici_listesi_json').value = JSON.stringify(alicilar);
+    }
+
+    function aliciEkle() {
+        const input = document.getElementById('yeni_alici_input');
+        const mail = input.value.trim().toLowerCase();
+        
+        // Basit bir e-posta format kontrolü
+        if(mail && mail.includes('@') && mail.includes('.')) {
+            if(!alicilar.includes(mail)) {
+                alicilar.push(mail);
+                renderAlicilar();
+            } else {
+                alert("Bu adres zaten listede var!");
+            }
+            input.value = ""; // Kutuyu temizle
+        } else {
+            alert("Lütfen geçerli bir e-posta adresi girin!");
+        }
+    }
+
+    function aliciSil(index) {
+        alicilar.splice(index, 1);
+        renderAlicilar();
+    }
+
+    // Input içindeyken Enter'a basılırsa form gönderilmesin, sadece listeye eklensin
+    document.getElementById('yeni_alici_input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            aliciEkle();
+        }
+    });
+
+    // Sayfa açıldığında mevcut listeyi ekrana bas
+    window.onload = renderAlicilar;
+</script>
+{% endblock %}

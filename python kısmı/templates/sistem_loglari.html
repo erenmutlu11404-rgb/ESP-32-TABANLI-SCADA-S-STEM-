@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="m-0 fw-bold" style="color: #2C3E50;">Sistem Olay Günlüğü (Audit Log)</h2>
+</div>
+<hr class="border-secondary">
+
+<div class="card shadow-sm p-4 bg-white" style="border: 1px solid #ddd;">
+    
+    <div class="row mb-4 bg-light p-3 rounded border">
+        <div class="col-md-4">
+            <label class="form-label fw-bold text-secondary small">Kategoriye Göre Filtrele:</label>
+            <select id="kategoriFiltre" class="form-select border-secondary" onchange="tabloyuFiltrele()">
+                <option value="TÜMÜ">-- Tüm Olaylar --</option>
+                <option value="CİHAZ">Cihaz İşlemleri (Ekle/Sil)</option>
+                <option value="SENSÖR">Sensör İşlemleri</option>
+                <option value="ALARM">Alarm Kurulum ve Tetiklemeleri</option>
+                <option value="İZLEME">Toplu İzleme Olayları</option>
+                <option value="KONTROL">Kullanıcı Manuel Kontrolleri</option>
+                <option value="AYAR">Sistem Ayarları</option>
+                <option value="HATA">Sistem Hataları</option>
+                <option value="SİSTEM">Genel Sistem Bildirimleri</option>
+            </select>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label fw-bold text-secondary small">Mesaj İçinde Ara:</label>
+            <input type="text" id="aramaKutusu" class="form-control border-secondary" placeholder="Örn: İstasyon 1..." onkeyup="tabloyuFiltrele()">
+        </div>
+    </div>
+
+    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+        <table class="table table-hover table-bordered table-sm m-0" id="logTablosu">
+            <thead style="background-color: #34495E; color: white; position: sticky; top: 0; z-index: 1;">
+                <tr>
+                    <th style="width: 200px;">Tarih / Saat</th>
+                    <th style="width: 150px;">Kategori</th>
+                    <th>Olay Detayı (Mesaj)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in loglar %}
+                <tr class="log-satir" data-kategori="{{ log.kategori }}">
+                    <td class="align-middle text-muted fw-bold">{{ log.zaman }}</td>
+                    <td class="align-middle">
+                        {% if log.kategori == 'CİHAZ' %} <span class="badge bg-primary w-100">CİHAZ</span>
+                        {% elif log.kategori == 'SENSÖR' %} <span class="badge bg-info text-dark w-100">SENSÖR</span>
+                        {% elif log.kategori == 'ALARM' %} <span class="badge bg-danger w-100">ALARM</span>
+                        {% elif log.kategori == 'İZLEME' %} <span class="badge bg-warning text-dark w-100">İZLEME</span>
+                        {% elif log.kategori == 'KONTROL' %} <span class="badge bg-success w-100">KONTROL</span>
+                        {% elif log.kategori == 'AYAR' %} <span class="badge bg-secondary w-100">AYARLAR</span>
+                        {% elif log.kategori == 'HATA' %} <span class="badge bg-dark text-danger w-100">HATA</span>
+                        {% else %} <span class="badge bg-dark w-100">{{ log.kategori }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="align-middle text-dark fw-bold mesaj-metni">{{ log.mesaj }}</td>
+                </tr>
+                {% else %}
+                <tr id="bos-satir"><td colspan="3" class="text-center text-muted p-4">Henüz kaydedilmiş bir sistem olayı bulunmuyor.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    function tabloyuFiltrele() {
+        const secilenKategori = document.getElementById("kategoriFiltre").value.toUpperCase();
+        const aramaMetni = document.getElementById("aramaKutusu").value.toLowerCase();
+        
+        const satirlar = document.querySelectorAll(".log-satir");
+        let gorunenSatirVarMi = false;
+
+        satirlar.forEach(satir => {
+            const kategori = satir.getAttribute("data-kategori").toUpperCase();
+            const mesaj = satir.querySelector(".mesaj-metni").innerText.toLowerCase();
+            
+            // Hem Kategori Eşleşmesi Hem de Metin İçinde Arama kontrolü
+            const kategoriUyarMi = (secilenKategori === "TÜMÜ" || secilenKategori === kategori);
+            const metinUyarMi = mesaj.includes(aramaMetni);
+
+            if (kategoriUyarMi && metinUyarMi) {
+                satir.style.display = "";
+                gorunenSatirVarMi = true;
+            } else {
+                satir.style.display = "none";
+            }
+        });
+
+        // Eğer hiç satır kalmazsa "Bulunamadı" uyarısı göster
+        let bosSatir = document.getElementById("bos-sonuc-uyarisi");
+        if (!gorunenSatirVarMi && satirlar.length > 0) {
+            if (!bosSatir) {
+                const tbody = document.querySelector("#logTablosu tbody");
+                tbody.insertAdjacentHTML('beforeend', '<tr id="bos-sonuc-uyarisi"><td colspan="3" class="text-center text-danger fw-bold p-4">Filtrenize uygun olay bulunamadı!</td></tr>');
+            }
+        } else {
+            if (bosSatir) bosSatir.remove();
+        }
+    }
+</script>
+{% endblock %}
